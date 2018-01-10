@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2101 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLObject;
 import com.alibaba.druid.sql.ast.SQLStatementImpl;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
-public class SQLAlterTableStatement extends SQLStatementImpl implements SQLDDLStatement {
+public class SQLAlterTableStatement extends SQLStatementImpl implements SQLDDLStatement, SQLAlterStatement {
 
     private SQLExprTableSource      tableSource;
     private List<SQLAlterTableItem> items                   = new ArrayList<SQLAlterTableItem>();
@@ -39,6 +42,9 @@ public class SQLAlterTableStatement extends SQLStatementImpl implements SQLDDLSt
     private boolean                 removePatiting          = false;
     private boolean                 upgradePatiting         = false;
     private Map<String, SQLObject>  tableOptions            = new LinkedHashMap<String, SQLObject>();
+
+    // odps
+    private boolean                 mergeSmallFiles         = false;
 
     public SQLAlterTableStatement(){
 
@@ -88,6 +94,14 @@ public class SQLAlterTableStatement extends SQLStatementImpl implements SQLDDLSt
         this.invalidateGlobalIndexes = invalidateGlobalIndexes;
     }
 
+    public boolean isMergeSmallFiles() {
+        return mergeSmallFiles;
+    }
+
+    public void setMergeSmallFiles(boolean mergeSmallFiles) {
+        this.mergeSmallFiles = mergeSmallFiles;
+    }
+
     public List<SQLAlterTableItem> getItems() {
         return items;
     }
@@ -107,11 +121,22 @@ public class SQLAlterTableStatement extends SQLStatementImpl implements SQLDDLSt
         this.tableSource = tableSource;
     }
 
+    public void setTableSource(SQLExpr table) {
+        this.setTableSource(new SQLExprTableSource(table));
+    }
+
     public SQLName getName() {
         if (getTableSource() == null) {
             return null;
         }
         return (SQLName) getTableSource().getExpr();
+    }
+
+    public long nameHashCode64() {
+        if (getTableSource() == null) {
+            return 0L;
+        }
+        return ((SQLName) getTableSource().getExpr()).nameHashCode64();
     }
 
     public void setName(SQLName name) {
@@ -129,5 +154,42 @@ public class SQLAlterTableStatement extends SQLStatementImpl implements SQLDDLSt
             acceptChild(visitor, getItems());
         }
         visitor.endVisit(this);
+    }
+
+    @Override
+    public List<SQLObject> getChildren() {
+        List<SQLObject> children = new ArrayList<SQLObject>();
+        if (tableSource != null) {
+            children.add(tableSource);
+        }
+        children.addAll(this.items);
+        return children;
+    }
+
+    public String getTableName() {
+        if (tableSource == null) {
+            return null;
+        }
+        SQLExpr expr = ((SQLExprTableSource) tableSource).getExpr();
+        if (expr instanceof SQLIdentifierExpr) {
+            return ((SQLIdentifierExpr) expr).getName();
+        } else if (expr instanceof SQLPropertyExpr) {
+            return ((SQLPropertyExpr) expr).getName();
+        }
+
+        return null;
+    }
+
+    public String getSchema() {
+        SQLName name = getName();
+        if (name == null) {
+            return null;
+        }
+
+        if (name instanceof SQLPropertyExpr) {
+            return ((SQLPropertyExpr) name).getOwnernName();
+        }
+
+        return null;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2101 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@
 package com.alibaba.druid.pool.vendor;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
@@ -33,7 +35,8 @@ import com.alibaba.druid.util.Utils;
 
 public class MySqlValidConnectionChecker extends ValidConnectionCheckerAdapter implements ValidConnectionChecker, Serializable {
 
-    public static final int DEFAULT_VALIDATION_QUERY_TIMEOUT = 1000;
+    public static final int DEFAULT_VALIDATION_QUERY_TIMEOUT = 1;
+    public static final String DEFAULT_VALIDATION_QUERY = "SELECT 1";
 
     private static final long serialVersionUID = 1L;
     private static final Log  LOG              = LogFactory.getLog(MySqlValidConnectionChecker.class);
@@ -81,7 +84,7 @@ public class MySqlValidConnectionChecker extends ValidConnectionCheckerAdapter i
         this.usePingMethod = usePingMethod;
     }
 
-    public boolean validConnection(Connection conn, String validateQuery, int validationQueryTimeout) throws Exception {
+    public boolean isValidConnection(Connection conn, String validateQuery, int validationQueryTimeout) throws Exception {
         if (conn.isClosed()) {
             return false;
         }
@@ -100,9 +103,22 @@ public class MySqlValidConnectionChecker extends ValidConnectionCheckerAdapter i
                     validationQueryTimeout = DEFAULT_VALIDATION_QUERY_TIMEOUT;
                 }
 
-                ping.invoke(conn, true, validationQueryTimeout * 1000);
+                try {
+                    ping.invoke(conn, true, validationQueryTimeout * 1000);
+                } catch (InvocationTargetException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof SQLException) {
+                        throw (SQLException) cause;
+                    }
+                    throw e;
+                }
                 return true;
             }
+        }
+
+        String query = validateQuery;
+        if (validateQuery == null || validateQuery.isEmpty()) {
+            query = DEFAULT_VALIDATION_QUERY;
         }
 
         Statement stmt = null;
@@ -112,7 +128,7 @@ public class MySqlValidConnectionChecker extends ValidConnectionCheckerAdapter i
             if (validationQueryTimeout > 0) {
                 stmt.setQueryTimeout(validationQueryTimeout);
             }
-            rs = stmt.executeQuery(validateQuery);
+            rs = stmt.executeQuery(query);
             return true;
         } finally {
             JdbcUtils.close(rs);

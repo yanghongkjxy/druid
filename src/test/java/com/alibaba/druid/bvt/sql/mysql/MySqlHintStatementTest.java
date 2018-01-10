@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2101 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,18 +34,27 @@ public class MySqlHintStatementTest extends TestCase {
                      + " ) ENGINE=InnoDB DEFAULT CHARSET=utf8;"//
                      + " \n/*!40101 SET character_set_client = @saved_cs_client */;";
         String rs = SQLUtils.formatMySql(sql);
-        Assert.assertEquals("DROP TABLE IF EXISTS `item_similarity`;"
+        assertEquals("DROP TABLE IF EXISTS `item_similarity`;"
                 + "\n"
                 + "\n/*!40101 SET @saved_cs_client     = @@character_set_client */;"
                 + "\n"
                 + "\n/*!40101 SET character_set_client = utf8 */;"
                 + "\n"
                 + "\nCREATE TABLE `item_similarity` ("
-                + "\n\t`id` bigint(20) UNSIGNED NOT NULL, "
-                + "\n\t`sellerId` bigint(20) DEFAULT NULL, "
+                + "\n\t`id` bigint(20) UNSIGNED NOT NULL,"
+                + "\n\t`sellerId` bigint(20) DEFAULT NULL,"
                 + "\n\tPRIMARY KEY (`id`)"
                 + "\n) ENGINE = InnoDB CHARSET = utf8;"
                 + "\n"
                 + "\n/*!40101 SET character_set_client = @saved_cs_client */;", rs);
+    }
+    public void test_1() throws Exception {
+        String sql = "update "
+                     + "/*MS-MRCHISHUB-MH-MESSAGE-UPDATE*/ "
+                     + "/*+ INDEX(mh_message primary) */ "
+                     + "mh_message set gmt_modified = now(),status= '099' where id = 1244918;";
+        String rs = SQLUtils.formatMySql(sql);
+        assertEquals("UPDATE /*MS-MRCHISHUB-MH-MESSAGE-UPDATE*/ /*+ INDEX(mh_message primary) */ mh_message\n"
+                     + "SET gmt_modified = now(), status = '099'\n" + "WHERE id = 1244918;", rs);
     }
 }

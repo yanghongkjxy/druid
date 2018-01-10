@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2101 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.alibaba.druid.sql.ast.statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.alibaba.druid.sql.ast.SQLObject;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.ast.SQLStatementImpl;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
@@ -26,7 +27,7 @@ public class SQLLoopStatement extends SQLStatementImpl {
 
     private String             labelName;
 
-    private List<SQLStatement> statements = new ArrayList<SQLStatement>();
+    private final List<SQLStatement> statements = new ArrayList<SQLStatement>();
 
     @Override
     public void accept0(SQLASTVisitor visitor) {
@@ -40,10 +41,6 @@ public class SQLLoopStatement extends SQLStatementImpl {
         return statements;
     }
 
-    public void setStatements(List<SQLStatement> statements) {
-        this.statements = statements;
-    }
-
     public String getLabelName() {
         return labelName;
     }
@@ -52,4 +49,15 @@ public class SQLLoopStatement extends SQLStatementImpl {
         this.labelName = labelName;
     }
 
+    public void addStatement(SQLStatement stmt) {
+        if (stmt != null) {
+            stmt.setParent(this);
+        }
+        statements.add(stmt);
+    }
+
+    @Override
+    public List getChildren() {
+        return statements;
+    }
 }

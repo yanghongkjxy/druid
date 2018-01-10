@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2101 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,8 +45,8 @@ public class OracleInsertTest14 extends OracleTest {
         Assert.assertEquals("INSERT INTO raises" //
                             + "\nSELECT employee_id, salary * 1.1"//
                             + "\nFROM employees"//
-                            + "\nWHERE commission_pct > 0.2"//
-                            + "\nLOG ERRORS INTO errlog ('my_bad') REJECT LIMIT 10",//
+                            + "\nWHERE commission_pct > .2"//
+                            + "\nLOG ERRORS INTO errlog ('my_bad') REJECT LIMIT 10;",//
                             SQLUtils.toSQLString(stmt, JdbcConstants.ORACLE));
 
         OracleSchemaStatVisitor visitor = new OracleSchemaStatVisitor();

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2101 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,30 +15,19 @@
  */
 package com.alibaba.druid.sql.dialect.odps.visitor;
 
-import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
-import com.alibaba.druid.sql.ast.statement.SQLGrantStatement;
-import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsAddStatisticStatement;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsAnalyzeTableStatement;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsCreateTableStatement;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsDescStmt;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsGrantStmt;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsInsert;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsInsertStatement;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsLateralViewTableSource;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsListStmt;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsReadStatement;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsRemoveStatisticStatement;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsSelectQueryBlock;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsSetLabelStatement;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsShowGrantsStmt;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsShowPartitionsStmt;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsShowStatisticStmt;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsStatisticClause;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsUDTFSQLSelectItem;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.dialect.odps.ast.*;
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
+import com.alibaba.druid.stat.TableStat;
+import com.alibaba.druid.util.JdbcConstants;
 
 public class OdpsSchemaStatVisitor extends SchemaStatVisitor implements OdpsASTVisitor {
+
+    public OdpsSchemaStatVisitor() {
+        super(JdbcConstants.ODPS);
+    }
 
     @Override
     public void endVisit(OdpsCreateTableStatement x) {
@@ -57,7 +46,11 @@ public class OdpsSchemaStatVisitor extends SchemaStatVisitor implements OdpsASTV
 
     @Override
     public boolean visit(OdpsInsertStatement x) {
-        return false;
+        if (repository != null
+                && x.getParent() == null) {
+            repository.resolve(x);
+        }
+        return true;
     }
 
     @Override
@@ -67,6 +60,23 @@ public class OdpsSchemaStatVisitor extends SchemaStatVisitor implements OdpsASTV
 
     @Override
     public boolean visit(OdpsInsert x) {
+        setMode(x, TableStat.Mode.Insert);
+
+        SQLExprTableSource tableSource = x.getTableSource();
+        SQLExpr tableName = tableSource.getExpr();
+
+        if (tableName instanceof SQLName) {
+            TableStat stat = getTableStat((SQLName) tableName);
+            stat.incrementInsertCount();
+
+        }
+
+        for (SQLAssignItem partition : x.getPartitions()) {
+            partition.accept(this);
+        }
+
+        accept(x.getQuery());
+
         return false;
     }
 
@@ -115,7 +125,7 @@ public class OdpsSchemaStatVisitor extends SchemaStatVisitor implements OdpsASTV
 
     @Override
     public void endVisit(OdpsSelectQueryBlock x) {
-        
+        super.endVisit((SQLSelectQueryBlock) x);
     }
 
     @Override
@@ -254,22 +264,12 @@ public class OdpsSchemaStatVisitor extends SchemaStatVisitor implements OdpsASTV
     }
 
     @Override
-    public void endVisit(OdpsDescStmt x) {
-        
+    public void endVisit(OdpsValuesTableSource x) {
+
     }
 
     @Override
-    public boolean visit(OdpsDescStmt x) {
-        return true;
-    }
-    
-    @Override
-    public void endVisit(OdpsLateralViewTableSource x) {
-        
-    }
-    
-    @Override
-    public boolean visit(OdpsLateralViewTableSource x) {
-        return true;
+    public boolean visit(OdpsValuesTableSource x) {
+        return false;
     }
 }
